@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Genetic algorithm demo</title>
+  <meta name="description" content="Genetic algorith demo">
+  <meta name="author" content="kolek368">
+</head>
+
+<style>
+  .content {
+    max-width: 500px;
+    margin: auto;
+  }
+</style>
+
+<body>
+<div class="content">
+  <p>
+    Because of poor performane of the algorithm, pictures not bigger than 150x150px are recommended. 
+  </p>
+  <p>
+    <input type='file' />
+  </p>
+  <p>
+    <img id="user_image" src="#" alt="user selected image">
+    <canvas id="gray_image" style="border:1px solid #d3d3d3;">
+    Your browser does not support the HTML5 canvas tag.
+    </canvas>
+  </p>
+</div>
+<div class="content">
+  <p>
+    <input type="button" value="Start" onclick="startClicked()">
+    <input type="button" value="Stop" onclick="stopClicked()">
+    <label id="round_counter">Round: 0</label>
+  </p>
+  <p>
+    <canvas id="result_image" style="border:1px solid #d3d3d3;">
+      Your browser does not support the HTML5 canvas tag.
+    </canvas>
+  </p>
+  <p id="specimentribe">
+
+  </p>
+</div>
+</body>
+<script>
+var image_loaded = false;
+var algorithm_started = false;
+var MAX_SPECIMEN = 40;
+var BEST_COUNT = 10;
+var SCORES = {};
+var SCORES_ARR = [];
+
+window.addEventListener('load', function() {
+  document.querySelector('input[type="file"]').addEventListener('change', function() {
+      if (this.files && this.files[0]) {
+          var img = document.querySelector('img');  // $('img')[0]
+          img.src = URL.createObjectURL(this.files[0]); // set src to blob url
+          img.onload = imageIsLoaded;
+      }
+  });
+});
+
+function getRandomInt(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min)) + min;
+}
+
+function rgbToHex(rgb) { 
+  var hex = Number(rgb).toString(16);
+  if (hex.length < 2) {
+       hex = "0" + hex;
+  }
+  return hex;
+};
+
+function mutate() {
+  var c = document.getElementById("gray_image");
+  for (var i = 0; i < MAX_SPECIMEN; i++) {
+    var r = document.getElementById("specimen"+i);
+    var rtx = r.getContext("2d");
+    var colorNbr = getRandomInt(0, 256);
+    rtx.fillStyle = 'rgba('+colorNbr+','+colorNbr+','+colorNbr+',0.5)';
+    var a_posX = getRandomInt(0, c.width);
+    var a_posY = getRandomInt(0, c.height);
+    var a_width = getRandomInt(0, (c.width - a_posX)/3+1);
+    var a_height = getRandomInt(0, (c.height - a_posY)/3+1);
+    rtx.fillRect(a_posX, a_posY, a_width, a_height);
+  }
+}
+
+function score() {
+  var c = document.getElementById("gray_image");
+  var ctx = c.getContext("2d");
+  var imgData = ctx.getImageData(0, 0, c.width, c.height);
+  for (var i = 0; i < MAX_SPECIMEN; i++) {
+    var r = document.getElementById("specimen"+i);
+    var rtx = r.getContext("2d");
+    var specData = rtx.getImageData(0, 0, c.width, c.height);
+    SCORES["specimen"+i] = 0;
+    for (var j = 0; j < imgData.data.length; j += 4) {
+      SCORES["specimen"+i] += 255-Math.abs(imgData.data[j]-specData.data[j]);
+    }
+  }
+
+  var items = Object.keys(SCORES).map(function(key) {
+    return [key, SCORES[key]];
+  });
+
+  SCORES_ARR = items.sort(function(first, second) {
+    return second[1] - first[1];
+  });
+}
+
+function cross() {
+  var best_img = [];
+  for (var i = 0; i < BEST_COUNT; i++) {
+    var r = document.getElementById(SCORES_ARR[i][0]);
+    var rtx = r.getContext("2d");
+    best_img[i] = rtx.getImageData(0, 0, r.width, r.height); 
+  } 
+  for (var i = 0; i < MAX_SPECIMEN; i++) {
+    var r = document.getElementById(SCORES_ARR[i][0]);
+    var rtx = r.getContext("2d");
+    rtx.putImageData(best_img[i%BEST_COUNT], 0, 0);
+  }
+  var r = document.getElementById("result_image");
+  var rtx = r.getContext("2d");
+  rtx.putImageData(best_img[0], 0, 0);
+}
+
+async function geneticAlgorithmLoop() {
+  var tmpCounter = 0;
+  var c = document.getElementById("gray_image");
+  while (algorithm_started == true) {
+    tmpCounter += 1;
+    mutate();
+    score();
+    cross();
+    document.getElementById('round_counter').innerHTML = 'Round: '+tmpCounter;
+    await new Promise(r => setTimeout(r, 1));
+  }
+  alert("Counted to: " + tmpCounter);
+}
+
+function startClicked() {
+  if (image_loaded == false) {
+    alert("Please upload image to start");
+    return;
+  }
+  if (algorithm_started == true) {
+    return;
+  }
+  algorithm_started = true;
+  alert("Start!");
+  //geneticAlgorithmLoop();
+  setTimeout(geneticAlgorithmLoop, 0);
+}
+
+function stopClicked() {
+  if (algorithm_started == false) {
+    return;
+  }
+  algorithm_started = false;
+  alert("Stop!");
+}
+
+function imageIsLoaded() {
+  imageNormalize();
+  image_loaded = true;
+}
+
+function imageNormalize() {
+  var c = document.getElementById("gray_image");
+  var r = document.getElementById("result_image");
+  var ctx = c.getContext("2d");
+  var rtx = r.getContext("2d");
+  var img = document.getElementById("user_image");
+  c.width = img.width;
+  c.height = img.height;
+  r.width = img.width;
+  r.height = img.height;
+  ctx.drawImage(img, 0, 0);
+  rtx.drawImage(img, 0, 0);
+  var imgData = ctx.getImageData(0, 0, c.width, c.height);
+  var resultData = rtx.getImageData(0, 0, img.width, img.height);
+  for (var i = 0; i < imgData.data.length; i += 4) {
+    var tmp = imgData.data[i];
+    tmp += imgData.data[i+1]*256;
+    tmp += imgData.data[i+2]*256*256;
+    tmp /= (256*256);
+    imgData.data[i] = tmp;
+    imgData.data[i+1] = tmp;
+    imgData.data[i+2] = tmp;
+    imgData.data[i+3] = 255;
+    resultData.data[i] = 0;
+    resultData.data[i+1] = 0;
+    resultData.data[i+2] = 0;
+    resultData.data[i+3] = 255;
+  }
+  ctx.putImageData(imgData, 0, 0);
+  rtx.putImageData(resultData, 0, 0);
+  for (var i = 0; i < MAX_SPECIMEN; i++) {
+    var canv = document.createElement('canvas');
+    canv.id = 'specimen'+i;
+    canv.width = img.width;
+    canv.height = img.height;
+    var specX = canv.getContext("2d");
+    specX.putImageData(resultData, 0, 0);
+    document.getElementById('specimentribe').appendChild(canv);
+  }
+};
+</script>
+
+</html>
