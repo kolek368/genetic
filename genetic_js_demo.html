@@ -28,6 +28,12 @@
     Your browser does not support the HTML5 canvas tag.
     </canvas>
   </p>
+  <p>
+    <label>Artifact Max Width: </label>
+    <input type="number" id="artifactMaxWidth" value='0'><br>
+    <label>Artifact Max Height:</label>
+    <input type="number" id="artifactMaxHeight" value='0'>
+  </p>
 </div>
 <div class="content">
   <p>
@@ -77,23 +83,33 @@ function rgbToHex(rgb) {
   return hex;
 };
 
-function mutate() {
+function mutate(c, maxW, maxH) {
   var c = document.getElementById("gray_image");
-  for (var i = 0; i < MAX_SPECIMEN; i++) {
+  for (var i = BEST_COUNT; i < MAX_SPECIMEN; i++) {
     var r = document.getElementById("specimen"+i);
     var rtx = r.getContext("2d");
     var colorNbr = getRandomInt(0, 256);
     rtx.fillStyle = 'rgba('+colorNbr+','+colorNbr+','+colorNbr+',0.5)';
     var a_posX = getRandomInt(0, c.width);
     var a_posY = getRandomInt(0, c.height);
-    var a_width = getRandomInt(0, (c.width - a_posX)/3+1);
-    var a_height = getRandomInt(0, (c.height - a_posY)/3+1);
+    var a_width = 0;
+    var a_height = 0
+    if ((c.width - a_posX) >= maxW) {
+      a_width = getRandomInt(0, maxW);
+    } else {
+      a_width = getRandomInt(0, (c.width - a_posX)+1);
+    }
+    if ((c.height - a_posY) >= maxH) {
+      a_height = getRandomInt(0, maxH);
+    } else {
+      a_height = getRandomInt(0, (c.height - a_posY)+1);
+    }
     rtx.fillRect(a_posX, a_posY, a_width, a_height);
   }
 }
 
-function score() {
-  var c = document.getElementById("gray_image");
+function score(c) {
+  //var c = document.getElementById("gray_image");
   var ctx = c.getContext("2d");
   var imgData = ctx.getImageData(0, 0, c.width, c.height);
   for (var i = 0; i < MAX_SPECIMEN; i++) {
@@ -135,10 +151,12 @@ function cross() {
 async function geneticAlgorithmLoop() {
   var tmpCounter = 0;
   var c = document.getElementById("gray_image");
+  var maxW = document.getElementById('artifactMaxWidth').value;
+  var maxH = document.getElementById('artifactMaxHeight').value;
   while (algorithm_started == true) {
     tmpCounter += 1;
-    mutate();
-    score();
+    mutate(c, maxW, maxH);
+    score(c);
     cross();
     document.getElementById('round_counter').innerHTML = 'Round: '+tmpCounter;
     await new Promise(r => setTimeout(r, 1));
@@ -212,6 +230,8 @@ function imageNormalize() {
     specX.putImageData(resultData, 0, 0);
     document.getElementById('specimentribe').appendChild(canv);
   }
+  document.getElementById('artifactMaxWidth').value = Math.ceil(c.width/3);
+  document.getElementById('artifactMaxHeight').value = Math.ceil(c.height/3);
 };
 </script>
 
